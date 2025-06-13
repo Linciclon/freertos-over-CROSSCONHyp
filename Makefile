@@ -3,6 +3,10 @@ NAME:=freertos
 ROOT_DIR:=$(realpath .)
 BUILD_DIR:=$(ROOT_DIR)/build/$(PLATFORM)
 
+##CA for TAs:
+CONFIG_APPS_HELLO_WORLD:=y
+CONFIG_APPS_BW:=n
+
 # Setup baremetal-runtime build
 bmrt_dir:=$(ROOT_DIR)/src/baremetal-runtime
 include $(bmrt_dir)/setup.mk
@@ -43,19 +47,12 @@ $(info === Freertos port Extra Files ===)
 
 include $(APP_SRC_DIR)/extra.mk
 
-$(info === GP Client API Files ===)
+# $(info === GP Client API Files ===)
 
 GPClientAPI_SRC_DIR?=$(ROOT_DIR)/src/apps
 include $(GPClientAPI_SRC_DIR)/ca.mk
 
 $(info === Client Applications (BW for the moment) ===)
-
-# ClientAPP_SRC_DIR?=$(ROOT_DIR)/src/apps/bw
-# SRC_DIRS+=$(ClientAPP_SRC_DIR)
-# INC_DIRS+=$(ClientAPP_SRC_DIR)/ca/include
-# include $(ClientAPP_SRC_DIR)/sources.mk
-# C_SRC+=$(addprefix $(ClientAPP_SRC_DIR)/, $(ca_c_srcs))
-# ASM_SRC+=$(addprefix $(ClientAPP_SRC_DIR)/, $(ca_c_srcs))
 
 $(info FOO is: $(INC_DIRS))
 

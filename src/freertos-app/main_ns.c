@@ -29,6 +29,10 @@
 #include "task.h"
 #include "semphr.h"
 
+// #include "timers.h"
+// #define SW_TIMER_PERIOD_MS (1000 / portTICK_PERIOD_MS)
+// static void SwTimerCallback(TimerHandle_t xTimer);
+
 /* Demo application include. */
 
 /* Pre-processor Definitions. */
@@ -216,10 +220,12 @@ static void menuTask(void *pvParameters)
     printf("| [9] - Run Bitcoin Wallet                                  |\n");
 #endif
     printf("+-----------------------------------------------------------+\n");
-    scanf("%d", &ch);
+    //scanf("%d", &ch);
+    
+    //ch = getchar();
     //printf("\n[%c]\n", ch = GetChar());
 
-    switch (ch) {
+    switch ('1') {
 #ifdef CONFIG_APPS_HELLO_WORLD
       case '1':
         xTaskCreate(teeHelloWorldTask,  /* The function that implements the task. */
@@ -763,7 +769,8 @@ int main( void )
 {
   /* Prepare the hardware to run this demo. */
   //prvSetupHardware();
-
+  // TimerHandle_t SwTimerHandle = NULL;
+  
   printf("\n\n\t-= mTower v" " =-  " __DATE__ "  " __TIME__"\n\n");
 
   printf("+---------------------------------------------+\n");
@@ -777,19 +784,22 @@ int main( void )
   // Secure_LED_On_callback(&NonSecure_LED_On);
   // Secure_LED_Off_callback(&NonSecure_LED_Off);
 
+  BOARD_InitHardware();
+  SystemCoreClockUpdate();
+
+  /* Create the software timer. */
+  // SwTimerHandle = xTimerCreate("SwTimer",          /* Text name. */
+  //                              SW_TIMER_PERIOD_MS, /* Timer period. */
+  //                              pdTRUE,             /* Enable auto reload. */
+  //                              0,                  /* ID is not used. */
+  //                              SwTimerCallback);   /* The callback function. */
+
   xTaskCreate( menuTask,     /* The function that implements the task. */
         "menu",                /* The text name assigned to the task - for debug only as it is not used by the kernel. */
         768,                    /* The size of the stack to allocate to the task. */
         ( void * ) NULL,        /* The parameter passed to the task - just to check the functionality. */
         tskIDLE_PRIORITY + 2,   /* The priority assigned to the task. */
         NULL );
-
-  // xTaskCreate( teeLedBlinkTask,     /* The function that implements the task. */
-  //     "tLedBlink",                /* The text name assigned to the task - for debug only as it is not used by the kernel. */
-  //     256,                    /* The size of the stack to allocate to the task. */
-  //     ( void * ) NULL,        /* The parameter passed to the task - just to check the functionality. */
-  //     tskIDLE_PRIORITY + 2,   /* The priority assigned to the task. */
-  //     NULL );
 
   xTaskCreate( clnSrvTask,    /* The function that implements the task. */
       "clnSrv",               /* The text name assigned to the task - for debug only as it is not used by the kernel. */
@@ -798,6 +808,9 @@ int main( void )
       tskIDLE_PRIORITY + 2,    /* The priority assigned to the task. */
       NULL );
 
+  // /* Start timer. */
+  // xTimerStart(SwTimerHandle, 0);
+  
   vTaskStartScheduler();
 
   /* If all is well, the scheduler will now be running, and the following
@@ -810,3 +823,11 @@ int main( void )
   return 0;
 }
 
+// /*!
+//  * @brief Software timer callback.
+//  */
+// static void SwTimerCallback(TimerHandle_t xTimer)
+// {
+//     //PRINTF("Tick.\r\n");
+//     printf("Tick.\r\n");
+// }

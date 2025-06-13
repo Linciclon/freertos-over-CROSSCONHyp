@@ -33,7 +33,7 @@
 #define PLAT_CODE_MEM_SIZE  0x25000
 
 #define PLAT_MEM_BASE       0x20030000
-#define PLAT_MEM_SIZE       0x10000
+#define PLAT_MEM_SIZE       0x20000
 
 #define PLAT_UART_ADDR      0x40089000UL
 #define UART_NVIC_IRQ_ID    17
@@ -49,7 +49,7 @@
 #define FCCLKSEL            FCCLKSEL3
 #define SYSCON_AHBCLKTRL1   SYSCON_AHBCLKTRL1_FC3
 
-// #endif
+// // #endif
 
 #define STACK_SIZE          0x4000
 

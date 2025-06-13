@@ -70,7 +70,7 @@ int tee_bitcoin_wallet()
 		account_id = argv[4][0]-'0';
 	}
 
-	printf("Account ID: %d\n", account_id);
+	//printf("Account ID: %d\n", account_id);
 
 	// convert string pin to integer
 	pin = (argv[2][0]-'0')*1000 + (argv[2][1]-'0')*100 + (argv[2][2]-'0')*10 +(argv[2][3]-'0');
@@ -78,7 +78,7 @@ int tee_bitcoin_wallet()
 	// Initiliaze context
 	res = TEEC_InitializeContext(NULL, &ctx);
 	if (res != TEEC_SUCCESS)
-		//printf( "TEEC_InitializeContext failed with code 0x%x", res);
+		printf( "TEEC_InitializeContext failed with code 0x%x", res);
 	
 	// Open session with TA
 	res = TEEC_OpenSession(&ctx, &sess, &uuid, TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);

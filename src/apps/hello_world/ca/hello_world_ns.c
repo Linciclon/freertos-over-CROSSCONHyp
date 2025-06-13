@@ -25,12 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <err.h>
+//#include <err.h>
 #include <stdio.h>
 #include <string.h>
 
 #ifndef PLATFORM_LPC55S69
-#include "printf.h"
+#include <stdio.h>
 #endif
 #include "tee_client_api.h"
 
@@ -49,7 +49,7 @@ int tee_hello_world(void)
 	/* Initialize a context connecting us to the TEE */
 	res = TEEC_InitializeContext(NULL, &ctx);
 	if (res != TEEC_SUCCESS)
-		errx(1, "TEEC_InitializeContext failed with code 0x%x", res);
+		printf("TEEC_InitializeContext failed with code 0x%x", res);
 
 	/*
 	 * Open a session to the "hello world" TA, the TA will print "hello
@@ -58,7 +58,7 @@ int tee_hello_world(void)
 	res = TEEC_OpenSession(&ctx, &sess, &uuid,
 			       TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
 	if (res != TEEC_SUCCESS)
-		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x",
+		printf("TEEC_Opensession failed with code 0x%x origin 0x%x",
 			res, err_origin);
 
 	/*
@@ -88,7 +88,7 @@ int tee_hello_world(void)
 	res = TEEC_InvokeCommand(&sess, TA_HELLO_WORLD_CMD_INC_VALUE, &op,
 				 &err_origin);
 	if (res != TEEC_SUCCESS)
-		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
+		printf("TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
 			res, err_origin);
 	printf("TA incremented value to %d\n", op.params[0].value.a);
 

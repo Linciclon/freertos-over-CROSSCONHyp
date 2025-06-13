@@ -44,26 +44,24 @@ _exception_vector:
 
 /* Handlers */
 define_handler _exception_handler
-_exception_handler:
     b   .
 
-_mem_exception_handler:
+define_handler _mem_exception_handler
     b   .
 
-_hf_exception_handler:
+define_handler _hf_exception_handler
     b   .
 
-_bus_exception_handler:
+define_handler _bus_exception_handler
     b   .
 
-_try1_exception_handler:
+define_handler _try1_exception_handler
     b   .
 
-_try2_exception_handler:
+define_handler _try2_exception_handler
     b   .
 
 define_handler _irq_handler
-_irq_handler:
     // Get the IRQ number
     mrs r0, IPSR
     // Call the IRQ handler
@@ -72,7 +70,6 @@ _irq_handler:
     b   .
 
 define_handler _systick_handler
-_systick_handler:
     // Call the SysTick handler
     b SysTick_Handler
     // mov r0, #TIMER_IRQ_ID

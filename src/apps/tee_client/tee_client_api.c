@@ -50,6 +50,16 @@
 //
 //#include "teec_benchmark.h"
 
+#define PHYS_SHMEMORY_ADDR 0x20017000
+#define CROSSHYP_IMAGE_START     0x10000000UL
+#define CROSSHYP_OFF          0x41UL
+#define CROSSHYP_HC_ADDR         CROSSHYP_IMAGE_START+CROSSHYP_OFF
+#define CROSSHYP_IPC_ID			0x1
+#define CROSSCON_HC_SG_ID 	0x2
+
+void (*crosshyp_hypercall)(unsigned int, unsigned int, unsigned int) =
+    (void (*)(unsigned int, unsigned int, unsigned int))CROSSHYP_HC_ADDR;
+
 extern int32_t ioctl(uint32_t cmd, struct tee_ioctl_buf_data *buf_data);
 
 /* How many device sequence numbers will be tried before giving up */
@@ -493,7 +503,7 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *ctx, TEEC_Session *session,
 {
 	uint32_t buf[(sizeof(struct tee_ioctl_open_session_arg) +
 			TEEC_CONFIG_PAYLOAD_REF_COUNT *
-				sizeof(struct tee_ioctl_param)) /
+			sizeof(struct tee_ioctl_param)) /
 			sizeof(uint32_t)] = { 0 };
 	struct tee_ioctl_buf_data buf_data;
 	struct tee_ioctl_open_session_arg *arg;
@@ -527,9 +537,11 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *ctx, TEEC_Session *session,
 		goto out_free_temp_refs;
 	}
 
-	while (1);
+	//while (1);
 	//substituir por hypercall
 	//rc = ioctl(/*ctx->fd,*/ TEE_IOC_OPEN_SESSION, &buf_data);
+	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_OPEN_SESSION, &buf_data);
+
 	if (rc) {
 //		EMSG("TEE_IOC_OPEN_SESSION failed");
 		eorig = TEEC_ORIGIN_COMMS;
@@ -565,8 +577,8 @@ void TEEC_CloseSession(TEEC_Session *session)
 
 	arg.session = session->session_id;
 	//substituir isto por hypercalls
-	while (1);
-	
+	//while (1);
+	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_CLOSE_SESSION, &buf_data);
 	// if (ioctl(/*session->ctx->fd,*/ TEE_IOC_CLOSE_SESSION, &buf_data))
 	// 	printf("Failed to close session 0x%x\n", session->session_id);
 	// else {
@@ -620,9 +632,10 @@ TEEC_Result TEEC_InvokeCommand(TEEC_Session *session, uint32_t cmd_id,
 		goto out_free_temp_refs;
 	}
 
-	while (1);
+	//while (1);
 	//substituir por hyprcall
 	//rc = ioctl(/*session->ctx->fd,*/ TEE_IOC_INVOKE, &buf_data);
+	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_INVOKE, &buf_data);
 	if (rc) {
 //	  EMSG("TEE_IOC_INVOKE failed");
 		eorig = TEEC_ORIGIN_COMMS;
