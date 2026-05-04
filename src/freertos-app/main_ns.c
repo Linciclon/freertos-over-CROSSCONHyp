@@ -29,6 +29,12 @@
 #include "task.h"
 #include "semphr.h"
 
+
+#include <uart.h>
+#include <irq.h>
+#include <plat.h>
+#include <app.h>
+
 // #include "timers.h"
 // #define SW_TIMER_PERIOD_MS (1000 / portTICK_PERIOD_MS)
 // static void SwTimerCallback(TimerHandle_t xTimer);
@@ -225,7 +231,7 @@ static void menuTask(void *pvParameters)
     //ch = getchar();
     //printf("\n[%c]\n", ch = GetChar());
 
-    switch ('1') {
+    switch ('9') {
 #ifdef CONFIG_APPS_HELLO_WORLD
       case '1':
         xTaskCreate(teeHelloWorldTask,  /* The function that implements the task. */
@@ -758,6 +764,14 @@ void menu_security_exception_example_ns(void)
 while(1);
 }
 #endif
+
+void uart_rx_handler(){
+    uart_clear_rxirq();
+    printf("%s\n", __func__);
+}
+
+#define IRQ_MAX_PRIO    (0)
+
 /**
  * @brief         main - entry point of mTower: nFreeRTOS.
  *
@@ -770,12 +784,16 @@ int main( void )
   /* Prepare the hardware to run this demo. */
   //prvSetupHardware();
   // TimerHandle_t SwTimerHandle = NULL;
-  
-  printf("\n\n\t-= mTower v" " =-  " __DATE__ "  " __TIME__"\n\n");
 
   printf("+---------------------------------------------+\n");
   printf("|  Nonsecure FreeRTOS (BL33) is running ...   |\n");
   printf("+---------------------------------------------+\n");
+
+  irq_set_handler(UART_IRQ_ID, uart_rx_handler);
+  uart_enable_rxirq();
+
+  irq_set_prio(UART_IRQ_ID, IRQ_MAX_PRIO);
+  irq_enable(UART_IRQ_ID);
 
   /* Init PC for Nonsecure LED control */
   // GPIO_SetMode(PC_NS, BIT1 | BIT0, GPIO_MODE_OUTPUT);

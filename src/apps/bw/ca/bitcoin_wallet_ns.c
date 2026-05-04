@@ -83,7 +83,7 @@ int tee_bitcoin_wallet()
 	// Open session with TA
 	res = TEEC_OpenSession(&ctx, &sess, &uuid, TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
 	if (res != TEEC_SUCCESS)
-		//printf( "TEEC_Opensession failed with code 0x%x origin 0x%x", res, err_origin);
+		printf( "TEEC_Opensession failed with code 0x%x origin 0x%x", res, err_origin);
 
 	cmd_id = 7;
 
@@ -113,7 +113,7 @@ int tee_bitcoin_wallet()
 		ta_bitcoin_cmd_check_masterkey(sess, pin, 1, err_origin);
 		//ta_bitcoin_cmd_erase_masterkey(sess, pin, 4, err_origin);
 		//ta_bitcoin_cmd_check_masterkey(sess, pin, 1, err_origin);
-		ta_bitcoin_cmd_issue_transactions(sess, pin, 5, err_origin, account_id);
+		//uncomment this to test bw transaction, at this time does not work completly: ta_bitcoin_cmd_issue_transactions(sess, pin, 5, err_origin, account_id);
 		//
 		//ta_bitcoin_cmd_mnemonic_to_masterkey(sess, pin, 3, err_origin, mnemonic);
 		//getchar();
@@ -181,7 +181,7 @@ static TEEC_Result ta_bitcoin_cmd_generate_new_masterkey(TEEC_Session sess, uint
 		printf( "Incorrect pin");
 	if (res == TEEC_SUCCESS){
 		printf("Here's your wallet mnemonic!\n");
-		printf("*%s*\n", (char*)op.params[1].tmpref.buffer);
+		//printf("*%c*\n", ((char *)op.params[1].tmpref.buffer)[0]);
 		for (uint8_t i = 0; i < strlen(op.params[1].tmpref.buffer); i++)
 		{
 			mnemonic[i] = *((char*) (op.params[1].tmpref.buffer) + i);

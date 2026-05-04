@@ -50,12 +50,24 @@
 //
 //#include "teec_benchmark.h"
 
-#define PHYS_SHMEMORY_ADDR 0x20017000
+#define PHYS_SHMEMORY_ADDR 0x20000000
+#define SIZE_OF_PHYS_SHMEMORY_ADDR 0x10000
+#define PHYS_SHMEMORY_PREAMBLE_SIZE 0x1000
 #define CROSSHYP_IMAGE_START     0x10000000UL
 #define CROSSHYP_OFF          0x41UL
 #define CROSSHYP_HC_ADDR         CROSSHYP_IMAGE_START+CROSSHYP_OFF
 #define CROSSHYP_IPC_ID			0x1
 #define CROSSCON_HC_SG_ID 	0x2
+
+struct shared_memory_across_vms
+{
+	struct tee_ioctl_buf_data buf_data;
+	struct tee_ioctl_invoke_arg arg;
+	struct tee_ioctl_param params[4];
+	struct TEEC_SharedMemory *sh_mem;
+}; 
+struct shared_memory_across_vms * shm_mem_teevms = (struct shared_memory_across_vms * )PHYS_SHMEMORY_ADDR;
+uint32_t shm_buffer_last_size;
 
 void (*crosshyp_hypercall)(unsigned int, unsigned int, unsigned int) =
     (void (*)(unsigned int, unsigned int, unsigned int))CROSSHYP_HC_ADDR;
@@ -203,9 +215,12 @@ static TEEC_Result teec_pre_process_tmpref(TEEC_Context *ctx,
 	}
 	shm->size = tmpref->size;
 
-	res = TEEC_AllocateSharedMemory(ctx, shm);
-	if (res != TEEC_SUCCESS)
-		return res;
+	//to the shared memory add the preamble (reserved for GP API structure) and add the size of last shared buffer, which at begining we have the value 0x0
+	shm->buffer = PHYS_SHMEMORY_ADDR + PHYS_SHMEMORY_PREAMBLE_SIZE + shm_buffer_last_size;
+	shm_buffer_last_size = tmpref->size;
+	//res = TEEC_AllocateSharedMemory(ctx, shm);
+	//if (res != TEEC_SUCCESS)
+	//	return res;
 
 	memcpy(shm->buffer, tmpref->buffer, tmpref->size);
 
@@ -291,6 +306,23 @@ static TEEC_Result teec_pre_process_tmpref(TEEC_Context *ctx,
 //	return TEEC_SUCCESS;
 //}
 //
+static inline bool range_in_range(unsigned long base1, unsigned long size1, unsigned long base2,
+    unsigned long size2)
+{
+    unsigned long limit1 = base1 + size1;
+    unsigned long limit2 = base2 + size2;
+
+    /* Saturate possible overflows */
+    if (limit1 < base1) {
+        limit1 = ULONG_MAX;
+    }
+    if (limit2 < base2) {
+        limit2 = ULONG_MAX;
+    }
+
+    return (base1 >= base2) && (limit1 <= limit2);
+}
+
 static TEEC_Result teec_pre_process_operation(TEEC_Context *ctx,
 			TEEC_Operation *operation,
 			struct tee_ioctl_param *params,
@@ -298,6 +330,8 @@ static TEEC_Result teec_pre_process_operation(TEEC_Context *ctx,
 {
 	TEEC_Result res;
 	size_t n;
+	//TEEC_TempMemoryReference * shrd_addr_op_ptr = (TEEC_TempMemoryReference * )(PHYS_SHMEMORY_ADDR + PHYS_SHMEMORY_PREAMBLE_SIZE);
+	//TEEC_TempMemoryReference * next_shrd_addr_op_ptr = (TEEC_TempMemoryReference * )(PHYS_SHMEMORY_ADDR + PHYS_SHMEMORY_PREAMBLE_SIZE);
 
 	memset(shms, 0, sizeof(TEEC_SharedMemory) *
 			TEEC_CONFIG_PAYLOAD_REF_COUNT);
@@ -325,8 +359,19 @@ static TEEC_Result teec_pre_process_operation(TEEC_Context *ctx,
 		case TEEC_MEMREF_TEMP_INPUT:
 		case TEEC_MEMREF_TEMP_OUTPUT:
 		case TEEC_MEMREF_TEMP_INOUT:
+			// if(!range_in_range(&operation->params[n].tmpref.buffer, operation->params[n].tmpref.size, PHYS_SHMEMORY_ADDR, SIZE_OF_PHYS_SHMEMORY_ADDR)){
+			// 	size_t tmpref_size = operation->params[n].tmpref.size;
+			// 	//copy the content of the buffer to the shared memory region, and update the buffer address and size in the operation struct
+			// 	memcpy(shrd_addr_op_ptr, &operation->params[n].tmpref.buffer, tmpref_size);
+			// 	next_shrd_addr_op_ptr += tmpref_size; //add offset for next operation, if any
+			// 	//verify if shrd_addr_op_ptr cross the limits;
+			// 	if(next_shrd_addr_op_ptr >= PHYS_SHMEMORY_ADDR + SIZE_OF_PHYS_SHMEMORY_ADDR){
+			// 		return TEEC_ERROR_BAD_PARAMETERS;
+			// 	}
+			// }
+
 			res = teec_pre_process_tmpref(ctx, param_type,
-				&operation->params[n].tmpref, params + n,
+				&operation->params[n].tmpref.buffer, params + n,
 				shms + n);
 			if (res != TEEC_SUCCESS)
 				return res;
@@ -511,6 +556,8 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *ctx, TEEC_Session *session,
 	TEEC_Result res;
 	uint32_t eorig;
 	TEEC_SharedMemory shm[TEEC_CONFIG_PAYLOAD_REF_COUNT];
+	struct tee_ioctl_buf_data * shared_data = (struct tee_ioctl_buf_data * )PHYS_SHMEMORY_ADDR;
+	uint32_t * shared = (uint32_t *)PHYS_SHMEMORY_ADDR + sizeof(shared_data); 
 	int rc;
 
 	(void)&connection_data;
@@ -521,10 +568,10 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *ctx, TEEC_Session *session,
 		goto out;
 	}
 
-	buf_data.buf_ptr = (uintptr_t)buf;
-	buf_data.buf_len = sizeof(buf);
+	shared_data->buf_ptr = (uintptr_t)shared;
+	shared_data->buf_len = sizeof(buf);
 
-	arg = (struct tee_ioctl_open_session_arg *)buf;
+	arg = (struct tee_ioctl_open_session_arg *)shared;
 	arg->num_params = TEEC_CONFIG_PAYLOAD_REF_COUNT;
 	params = (struct tee_ioctl_param *)(arg + 1);
 
@@ -540,7 +587,7 @@ TEEC_Result TEEC_OpenSession(TEEC_Context *ctx, TEEC_Session *session,
 	//while (1);
 	//substituir por hypercall
 	//rc = ioctl(/*ctx->fd,*/ TEE_IOC_OPEN_SESSION, &buf_data);
-	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_OPEN_SESSION, &buf_data);
+	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_OPEN_SESSION, shared_data);
 
 	if (rc) {
 //		EMSG("TEE_IOC_OPEN_SESSION failed");
@@ -566,19 +613,19 @@ out:
 
 void TEEC_CloseSession(TEEC_Session *session)
 {
-  struct tee_ioctl_buf_data buf_data;
-	struct tee_ioctl_close_session_arg arg;
+	struct tee_ioctl_buf_data * buf_data = (struct tee_ioctl_buf_data * )PHYS_SHMEMORY_ADDR;
+	struct tee_ioctl_open_session_arg *arg = (struct tee_ioctl_open_session_arg *)PHYS_SHMEMORY_ADDR + sizeof(struct tee_ioctl_buf_data);
 
 	if (!session)
 		return;
 
-  buf_data.buf_ptr = (uintptr_t)&arg;
-  buf_data.buf_len = sizeof(arg);
+	buf_data->buf_ptr = (uintptr_t)arg;
+  	buf_data->buf_len = sizeof(arg);
 
-	arg.session = session->session_id;
+	arg->session = session->session_id;
 	//substituir isto por hypercalls
 	//while (1);
-	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_CLOSE_SESSION, &buf_data);
+	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_CLOSE_SESSION, (unsigned int)(buf_data));
 	// if (ioctl(/*session->ctx->fd,*/ TEE_IOC_CLOSE_SESSION, &buf_data))
 	// 	printf("Failed to close session 0x%x\n", session->session_id);
 	// else {
@@ -586,6 +633,15 @@ void TEEC_CloseSession(TEEC_Session *session)
     // session->session_id = 0;
 	//}
 }
+
+struct SharedMemvTEE
+{
+	struct tee_ioctl_buf_data * shared_data;
+	uint32_t * shared;
+	TEEC_SharedMemory *shm;
+	struct tee_ioctl_param *params;
+};
+
 
 TEEC_Result TEEC_InvokeCommand(TEEC_Session *session, uint32_t cmd_id,
 			TEEC_Operation *operation, uint32_t *error_origin)
@@ -596,11 +652,17 @@ TEEC_Result TEEC_InvokeCommand(TEEC_Session *session, uint32_t cmd_id,
 			sizeof(uint32_t)] = { 0 };
 	struct tee_ioctl_buf_data buf_data;
 	struct tee_ioctl_invoke_arg *arg;
-	struct tee_ioctl_param *params;
 	TEEC_Result res;
 	uint32_t eorig;
-	TEEC_SharedMemory shm[TEEC_CONFIG_PAYLOAD_REF_COUNT];
 	int rc;
+	struct tee_ioctl_buf_data * shared_data = (struct tee_ioctl_buf_data * )PHYS_SHMEMORY_ADDR;
+	uint32_t * shared = (uint32_t *)PHYS_SHMEMORY_ADDR + sizeof(shared_data); 
+	struct tee_ioctl_param *params = (struct tee_ioctl_param *)(shared + sizeof(struct tee_ioctl_invoke_arg));
+	TEEC_SharedMemory *shm = (TEEC_SharedMemory *)(params + (TEEC_CONFIG_PAYLOAD_REF_COUNT*sizeof(struct tee_ioctl_param)));
+	//struct tee_ioctl_param *params = (struct tee_ioctl_param *)PHYS_SHMEMORY_ADDR + sizeof(struct tee_ioctl_invoke_arg) + sizeof(shared_data) + (sizeof(TEEC_SharedMemory)*TEEC_CONFIG_PAYLOAD_REF_COUNT);
+	//TEEC_SharedMemory *shm = (TEEC_SharedMemory *)(shared + sizeof(struct tee_ioctl_invoke_arg));
+	
+	
 
 	if (!session) {
 		eorig = TEEC_ORIGIN_API;
@@ -610,10 +672,10 @@ TEEC_Result TEEC_InvokeCommand(TEEC_Session *session, uint32_t cmd_id,
 
 //	bm_timestamp();
 
-	buf_data.buf_ptr = (uintptr_t)buf;
-	buf_data.buf_len = sizeof(buf);
+	shared_data->buf_ptr = (uintptr_t)shared;
+	shared_data->buf_len = sizeof(buf);
 
-	arg = (struct tee_ioctl_invoke_arg *)buf;
+	arg = (struct tee_ioctl_invoke_arg *)shared;
 	arg->num_params = TEEC_CONFIG_PAYLOAD_REF_COUNT;
 	params = (struct tee_ioctl_param *)(arg + 1);
 
@@ -635,7 +697,7 @@ TEEC_Result TEEC_InvokeCommand(TEEC_Session *session, uint32_t cmd_id,
 	//while (1);
 	//substituir por hyprcall
 	//rc = ioctl(/*session->ctx->fd,*/ TEE_IOC_INVOKE, &buf_data);
-	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_INVOKE, &buf_data);
+	crosshyp_hypercall(CROSSCON_HC_SG_ID, TEE_IOC_INVOKE, shared_data);
 	if (rc) {
 //	  EMSG("TEE_IOC_INVOKE failed");
 		eorig = TEEC_ORIGIN_COMMS;
@@ -751,6 +813,7 @@ TEEC_Result TEEC_AllocateSharedMemory(TEEC_Context *ctx, TEEC_SharedMemory *shm)
 {
 //	int fd;
 	size_t s;
+	int32_t * ptr_end_shared_memory;
 
 	if (!ctx || !shm)
 		return TEEC_ERROR_BAD_PARAMETERS;
@@ -763,7 +826,8 @@ TEEC_Result TEEC_AllocateSharedMemory(TEEC_Context *ctx, TEEC_SharedMemory *shm)
 		s = 8;
 
 	if (ctx->reg_mem) {
-		shm->buffer = malloc(s);
+		shm->buffer = ptr_end_shared_memory + shm->size; 
+		//shm->buffer = malloc(s); Do not alloc since the buffer is already allocated to the first 
 		// shm->buffer = pvPortMalloc(s);
 		if (!shm->buffer)
 			return TEEC_ERROR_OUT_OF_MEMORY;

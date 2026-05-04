@@ -63,10 +63,11 @@ void uart_rx_handler(){
 
 int main(void){
 
-    printf("Bao FreeRTOS guest\n");
+    printf("Bao FreeRTOS guest (w/ interrupt support)\n");
 
-    uart_enable_rxirq();
     irq_set_handler(UART_IRQ_ID, uart_rx_handler);
+    uart_enable_rxirq();
+
     irq_set_prio(UART_IRQ_ID, IRQ_MAX_PRIO);
     irq_enable(UART_IRQ_ID);
 

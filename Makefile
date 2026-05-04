@@ -4,8 +4,8 @@ ROOT_DIR:=$(realpath .)
 BUILD_DIR:=$(ROOT_DIR)/build/$(PLATFORM)
 
 ##CA for TAs:
-CONFIG_APPS_HELLO_WORLD:=y
-CONFIG_APPS_BW:=n
+CONFIG_APPS_HELLO_WORLD:=n
+CONFIG_APPS_BW:=y
 
 # Setup baremetal-runtime build
 bmrt_dir:=$(ROOT_DIR)/src/baremetal-runtime
